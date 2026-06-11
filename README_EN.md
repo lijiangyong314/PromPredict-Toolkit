@@ -1,7 +1,7 @@
 # PromPredict Toolkit
 
-> **Physics over black boxes.**  
-> Promoter prediction based on DNA duplex thermodynamic stability.
+> **One-command visualization + QC + documentation. Turn PromPredict output into publishable results.**  
+> A toolkit for promoter prediction based on DNA duplex thermodynamic stability.
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -12,75 +12,90 @@
 
 ---
 
-## Overview
+## What This Toolkit Does
 
-**PromPredict** predicts promoter regions in genomic DNA based on a simple yet powerful principle: **promoter DNA must be locally unstable to allow RNA polymerase to melt the double helix and initiate transcription.**
+**PromPredict Toolkit** solves the practical problems you hit when using PromPredict in real research:
 
-Unlike machine-learning "black boxes," PromPredict computes the average free energy (ΔG) of every 15-bp sliding window along the input sequence using the Breslauer dinucleotide parameters. A region where the ΔG rises significantly above the flanking baseline is flagged as a candidate promoter — because nature makes promoters easier to melt.
+- ❌ PromPredict outputs three text files full of numbers — hard to interpret at a glance
+- ❌ Hundreds of predictions across dozens of sequences — which ones are trustworthy?
+- ❌ Your reviewer wants figures — but you'd have to hand-craft matplotlib from scratch
+- ❌ Genome mode and multisequence mode output different formats — scripts break silently
+- ❌ You want to chain PromPredict with iPro-MP and promoterCalculator — but there's no guide
 
-- **No training data** — thresholds are derived from experimentally validated TSS datasets in *E. coli*, *B. subtilis*, and *M. tuberculosis*
-- **No GPU** — pure physics, runs on a laptop CPU
-- **No model files** — 2.4 MB standalone binary
-- **Interpretable** — every prediction comes with a Dmax (stability difference) you can reason about
+| Problem | Toolkit Solution |
+|---------|-----------------|
+| **Interpreting output** | Free-energy profile plots + confidence bar charts, one PNG per sequence, Dmax auto-annotated |
+| **Filtering noise** | One-liner `awk` commands by Dmax threshold + green/orange/red color-coded visualization |
+| **Quality control** | Coverage checks, Dmax distribution stats, anomaly detection |
+| **Publication figures** | `plot_prompredict.py`, 200 DPI, submission-ready |
+| **Format headaches** | Dual-mode support (multisequence + genome), column index differences documented |
+| **Pipeline integration** | Step-by-step guide for combining with iPro-MP, promoterCalculator, ViennaRNA |
 
-This toolkit wraps the official IISc PromPredict binary with:
-- A production-grade Python visualization suite (`plot_prompredict.py`)
-- A comprehensive command-line usage guide
-- QC scripts and confidence-level filtering
-
-| Method | Approach | ML Model | GPU Required | Interpretable |
-|--------|----------|----------|-------------|---------------|
-| **PromPredict** | Thermodynamics (ΔG) | None | No | ✅ Yes (Dmax) |
-| iPro-MP | BERT Transformer | 36.5 GB | Yes | ❌ No |
-| Promotech | Random Forest / RNN | Custom | Optional | Partially |
+**In one sentence:** Download the PromPredict binary → run your data → visualize + QC with this toolkit → get figures you can drop straight into your paper.
 
 ---
 
 ## Features
 
-- **Zero-dependency binary**: download and run — no Python, no R, no Conda required
-- **Multisequence mode**: batch process hundreds of genes in one run
-- **Genome mode**: scan entire bacterial chromosomes (>10 MB) in sliding-window mode
-- **GC-adaptive thresholds**: automatically adjusts free energy cutoffs based on GC content
-- **Confidence scoring**: every prediction comes with a `Dmax` value (higher = stronger signal)
-- **Publication-ready visualization**: `plot_prompredict.py` generates one profile plot per sequence with promoter regions highlighted (multisequence mode). Genome-mode browser-track visualization is planned
-- **QC pipeline**: built-in scripts to check coverage, Dmax distribution, and format integrity (both modes)
+### Core: `plot_prompredict.py` visualization engine
+
+```bash
+python3 plot_prompredict.py sample_seq
+```
+
+One command generates:
+
+```
+sample_seq_profiles/
+├── sample_seq_confidence_summary.png   ← all predictions ranked by Dmax
+├── PM0-4641yaiS...png                  ← one profile per sequence
+├── PM00066ompF...png                   ← blue curve=ΔG, red bands=predicted promoters
+└── ...
+```
+
+Each profile plot includes: ΔG curve, sequence mean line, promoter region bands (green/orange/red by confidence), Dmax annotations, and Dmax-ΔG mismatch warnings.
+
+### Built-in QC pipeline
+
+```bash
+# Coverage | Dmax distribution | Anomaly detection | Confidence tier breakdown
+# All copy-paste ready in this README
+```
+
+### Dual-mode support
+
+| Mode | Use Case | Visualization |
+|------|----------|---------------|
+| Multisequence | Predict promoters in gene upstream regions | ✅ `plot_prompredict.py` fully supported |
+| Whole-genome | Scan complete bacterial chromosomes | ⚠️ CLI filtering + genome-browser tracks planned |
+
+### Complete documentation (this README)
+
+Covers installation, input/output formats, QC, parameter tuning decision tree, AI tool integration, scope, and FAQ.
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Download
+# 1. Clone the repo
+git clone https://github.com/lijiangyong314/PromPredict-Toolkit.git
+cd PromPredict-Toolkit
+
+# 2. Install Python dependencies (visualization)
+pip install matplotlib numpy
+
+# 3. Download the PromPredict binary
 wget --no-check-certificate \
   "https://dna.mbu.iisc.ac.in/prompredict/exe/linux/PromPredict_mulseq" \
   -O prompredict && chmod +x prompredict
 
-# 2. Prepare input (FASTA)
-echo -e ">gene1\nATCGATCGATCG..." > test.fasta
-
-# 3. Run
+# 4. Run on your data
 printf "test.fasta\n100\ndefault\n" | ./prompredict
 
-# 4. Visualize
+# 5. Visualize
 python3 plot_prompredict.py test
 ```
-
-That's it. Three output files are generated: a promoter list, a free-energy profile, and GC statistics. The visualization script produces one high-resolution PNG per sequence plus a confidence summary chart.
-
-**Genome-mode variant:**
-
-```bash
-# Download the genome binary
-wget --no-check-certificate \
-  "https://dna.mbu.iisc.ac.in/prompredict/exe/linux/PromPredict_genome_V2" \
-  -O prompredict_genome && chmod +x prompredict_genome
-
-# Run on a bacterial chromosome
-printf "genome.fna\n100\ndefault\n" | ./prompredict_genome
-```
-
-> ⚠️ Genome-mode output has a **different format** (11 columns per record vs. 8 in multisequence mode). `plot_prompredict.py` currently supports multisequence mode only. See [Genome-Mode QC](#genome-mode-qc) for manual filtering commands.
 
 ---
 
@@ -88,164 +103,72 @@ printf "genome.fna\n100\ndefault\n" | ./prompredict_genome
 
 ### Prerequisites
 
-- **OS**: Linux (x86-64) or WSL2 on Windows
-- **Disk**: < 5 MB for the binary; ~1 MB per 100 sequences for output
-- **Python** (optional, for visualization): 3.7+ with `matplotlib` and `numpy`
+- **Python** 3.7+ (visualization only)
+- **matplotlib + numpy** (`pip install matplotlib numpy`)
+- **OS**: Linux x86-64 or WSL2
+- PromPredict binary is ~2.4 MB
 
-### Step 1 — Download the binary
+### Download the PromPredict binary
 
 ```bash
-mkdir -p ~/bio_tools/prompredict && cd ~/bio_tools/prompredict
-
 # Multisequence mode (most common)
 wget --no-check-certificate \
   "https://dna.mbu.iisc.ac.in/prompredict/exe/linux/PromPredict_mulseq" \
-  -O prompredict
-chmod +x prompredict
+  -O prompredict && chmod +x prompredict
 
-# Optional: whole-genome mode (for >10 MB FASTA)
+# Whole-genome mode (for genomes >10 MB)
 wget --no-check-certificate \
   "https://dna.mbu.iisc.ac.in/prompredict/exe/linux/PromPredict_genome_V2" \
-  -O prompredict_genome
-chmod +x prompredict_genome
+  -O prompredict_genome && chmod +x prompredict_genome
 ```
 
-> **Note**: The IISc server uses an expired SSL certificate (RapidSSL, issued 2011). The `--no-check-certificate` flag is **required**.
+> The IISc server uses an expired SSL certificate (RapidSSL, issued 2011). The `--no-check-certificate` flag is **required**.
 
-### Step 2 — Install Python visualization dependencies (optional)
+### Conda environment (optional)
 
 ```bash
-# Using your existing environment
-pip install matplotlib numpy
-
-# Or create an isolated environment
 conda create -n prompredict python=3.9 matplotlib numpy -y
 conda activate prompredict
 ```
 
-### Step 3 — Verify
-
-```bash
-./prompredict 2>&1 | head -3
-# Expected output:
-# PromPredict : Date of Creation : 20 March 2008
-# Predicts promoter region over given set of sequences based on relative stability
-```
-
 ---
 
-## Input Format
+## The Underlying Tool: PromPredict
 
-PromPredict accepts **multi-FASTA** files. Each entry must have a header line starting with `>` followed by a sequence identifier, and the DNA sequence on subsequent lines.
+This toolkit wraps the **PromPredict** binary developed by the Molecular Biophysics Unit at the **Indian Institute of Science (IISc Bangalore)**.
 
-```fasta
->gene1_upstream_500bp
-ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG...
->gene2_upstream_500bp
-GGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGC...
-```
+### How it works
 
-| Requirement | Details |
-|-------------|---------|
-| **Minimum length** | 200 bp (recommended: 300–500 bp) |
-| **Maximum sequences** | No hard limit (tested to 10,000+) |
-| **Allowed characters** | A, T, G, C (uppercase recommended; case-insensitive in practice) |
-| **Gaps/ambiguous bases** | Not supported — remove or replace before running |
+PromPredict is based on a simple physical principle: **promoter DNA must be locally unstable so RNA polymerase can melt the double helix and initiate transcription.** It computes the average free energy (ΔG) of every 15-bp sliding window using Breslauer dinucleotide parameters. Regions where ΔG rises significantly above the flanking baseline are flagged as candidate promoters.
 
----
+| Property | Details |
+|----------|---------|
+| **Source** | IISc Bangalore, Molecular Biophysics Unit |
+| **Papers** | *Molecular BioSystems* (2009); *Scientific Reports* (2018) |
+| **Method** | Thermodynamics (ΔG), not machine learning |
+| **Dependencies** | None (standalone binary) |
+| **Size** | 2.4 MB |
+| **Thresholds** | Derived from experimentally validated TSS in *E. coli*, *B. subtilis*, *M. tuberculosis* |
 
-## Output Format
+### Comparison with other methods
 
-After running, three files are generated. Replace `<prefix>` with your input filename (without `.fasta`).
+| Method | Approach | Model Size | GPU | Interpretable |
+|--------|----------|-----------|-----|---------------|
+| **PromPredict** | Thermodynamics (ΔG) | 2.4 MB binary | No | ✅ Yes (Dmax) |
+| iPro-MP | BERT Transformer | 36.5 GB | Yes | ❌ No |
+| Promotech | Random Forest / RNN | Custom | Optional | Partial |
 
-### 1. `<prefix>_PPde.txt` — Predicted promoter regions
+### Scope
 
-The primary output. Each predicted promoter spans **two lines**:
+| Scenario | Suitability |
+|----------|-------------|
+| Gram-negative bacteria (Proteobacteria), GC 35–55% | ✅ Best |
+| Other bacteria, lower eukaryotes (yeast, worm, *Arabidopsis*) | ✅ Works |
+| High-GC bacteria (*Streptomyces* >72%) or Archaea | ⚠️ Requires manual tuning |
+| Mammalian genomes | ❌ Not recommended |
+| Predicting promoter **strength** (vs. location) | ❌ Use promoterCalculator instead |
 
-```
-ID    <seq_id>    <GC_content>
-><start>..<end>    <length>    <sequence>    <lsp>    <lspe>    <dmax_pos>    <Dmax>    <Dave>
-```
-
-**Example** (the *E. coli* ompF promoter):
-
-```
-ID    PM00066ompFpTU00050986315-    38.76
->301..402    102    ttaatttaaatataaggaaatcat...    308    -11.96    328    2.34    1.86
-```
-
-| Column | Field | Description |
-|--------|-------|-------------|
-| 1 | `>start..end` | Promoter coordinates (**1-based**) |
-| 2 | `length` | Promoter region length (bp) |
-| 3 | `sequence` | DNA sequence of predicted promoter |
-| 4 | `lsp` | **Local Stability Peak** — position of maximum instability; approximates the −10 element |
-| 5 | `lspe` | Energy at LSP (kcal/mol) |
-| 6 | `dmax_pos` | Position of maximum stability difference |
-| 7 | **`Dmax`** | **Stability difference** (promoter vs. flanking). **Primary confidence metric.** |
-| 8 | `Dave` | Average stability difference across the promoter |
-
-#### Dmax Confidence Guide
-
-| Dmax | Confidence | Recommended Action |
-|------|-----------|-------------------|
-| **≥ 3.5** | 🔥 Very High | Experimental validation |
-| **3.0 – 3.5** | ✅ High | Prioritize for validation |
-| **2.0 – 3.0** | ⚠️ Medium | Cross-validate with iPro-MP or motif search |
-| **1.5 – 2.0** | ❓ Weak | Requires additional evidence |
-| **< 1.5** | ❌ Very Low | Likely noise; ignore |
-
-> 💡 **Coordinate system**: PromPredict uses **1-based indexing** (position 1 = first nucleotide). When extracting substrings in Python (`seq[start:end]`), convert with `start_py = start - 1`.
-
-### 2. `<prefix>_stb.txt` — Free-energy profile
-
-Each line represents one 15-bp sliding window:
-
-```
-ID    <seq_id>    ΔG₁    ΔG₂    ΔG₃    ...
-```
-
-- **More negative** (e.g., −22 kcal/mol): very stable duplex → unlikely promoter
-- **Less negative** (e.g., −12 kcal/mol): unstable duplex → candidate promoter region
-
-The number of rows is `sequence_length − 14` (because 15-bp windows lose 7 bp of coverage at each end).
-
-### 3. `<prefix>_GCstat.txt` — GC-content distribution
-
-```
-35-40% GC: 9 sequences
-45-50% GC: 1 sequence
-```
-
-Used internally for threshold selection. You generally do not need to inspect this file.
-
-### Genome-Mode Output (Format Differences)
-
-When using `PromPredict_genome` instead of `PromPredict_mulseq`, the output file structure is modified:
-
-**`_PPde.txt` — flat 11-column format (no `ID`/`>` headers)**
-
-```
-# Start of the 1000nt window  %GC  pstart  pend  length  promoter_seq  lsp  lspe  Dmax_pos  Dmax  Dave
-0    15.90   500   607   108   tcgcaaat...   549   -11.42   555   1.85   1.52
-750  15.40   1173  1295  123   tttttataa...  1244  -11.84   1239  1.46   1.16
-```
-
-| Column | Index | Multisequence equivalent |
-|--------|-------|--------------------------|
-| Dmax | **9** (not 6) | `parts[6]` |
-| Dave | **10** (not 7) | `parts[7]` |
-| `pstart` / `pend` | 2 / 3 | `>start..end` (col 0) |
-
-**`_stb.txt` — uses window start position instead of sequence ID**
-
-```
-# Start of the 1000nt window  ΔG₁  ΔG₂  ΔG₃  ...
-0    -13.73  -13.85  -13.70  ...
-750  -14.25  -14.53  -14.13  ...
-```
-
-> 🔧 If you need genome-mode visualization, use the QC commands in [Genome-Mode QC](#genome-mode-qc) to extract coordinates manually, or open an issue to track genome-mode plot support.
+> ⚠️ **Uncertainty note**: The Dmax confidence tiers (≥3.5 = very high, 3.0–3.5 = high, etc.) are empirical guidelines based on testing against the IISc sample dataset and known *E. coli* promoters. They are not directly from the original paper. Validate against your own organism's known promoters before applying universally.
 
 ---
 
@@ -253,7 +176,7 @@ When using `PromPredict_genome` instead of `PromPredict_mulseq`, the output file
 
 ### Interactive mode
 
-PromPredict is interactive. It prompts for three parameters in sequence:
+Run the binary and answer three prompts:
 
 ```
 Enter the Input File Name:        your_file.fasta
@@ -261,231 +184,227 @@ Enter the E1 region window size:  100
 Whole genome GC content:          default
 ```
 
-### Non-interactive mode (recommended for scripts)
+### Non-interactive mode (recommended)
 
 ```bash
 printf "input.fasta\n100\ndefault\n" | ./prompredict
 ```
 
-The `printf` command feeds three lines into the interactive prompts via a Unix pipe.
+`printf` pipes three answers into the interactive program via Unix pipe.
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| **Input file** | *(required)* | Multi-FASTA file |
-| **E1 window** | `100` | Upstream comparison window (nt). `100` = high sensitivity + precision. Use `50` for second-pass if `100` misses known promoters |
-| **GC content** | `default` | `default` = auto-detect from 1000-nt fragments. Alternatively, specify the known whole-genome GC% (e.g., `50.5`) |
+| Parameter | Default | Meaning |
+|-----------|---------|---------|
+| Input file | *(required)* | Multi-FASTA file |
+| E1 window | `100` | Upstream comparison window (nt) |
+| GC content | `default` | `default` = auto-detect; or specify a number like `50.5` |
 
-### Whole-genome scanning
-
-For genomes > 10 MB, use the genome-mode binary:
+### Whole-genome mode
 
 ```bash
 printf "genome.fna\n100\ndefault\n" | ./prompredict_genome
 ```
 
-Two versions are available:
-- `PromPredict_genome_V1` — for genomes < 10 MB
-- `PromPredict_genome_V2` — for genomes ≥ 10 MB
+> ⚠️ Genome-mode output uses a different format (11 columns vs. 8). See [Output Format](#output-format).
+
+---
+
+## Output Format
+
+### Multisequence mode
+
+Three output files are generated (using `input.fasta` as example):
+
+#### `input_PPde.txt` — Predicted promoters
+
+Two lines per predicted promoter:
+
+```
+ID    <seq_id>    <GC%>
+><start>..<end>    <length>    <sequence>    <lsp>    <lspe>    <Dmax_pos>    <Dmax>    <Dave>
+```
+
+| Column | Meaning | Guidelines |
+|--------|---------|-----------|
+| `>start..end` | Promoter coordinates (**1-based**) | — |
+| `lsp` | Local Stability Peak, ≈ −10 element | — |
+| **`Dmax`** | **Stability difference (promoter vs. flanking)** | ≥3.5 very high / 3.0–3.5 high / 2.0–3.0 medium / <2.0 low* |
+| `Dave` | Average stability difference | >1.5 decent |
+
+\* See uncertainty note in [The Underlying Tool](#the-underlying-tool-prompredict) section.
+
+> 💡 PromPredict uses 1-based coordinates. For Python extraction: `start_py = start − 1`.
+
+#### `input_stb.txt` — Free-energy profile
+
+```
+ID    <seq_id>    ΔG₁    ΔG₂    ΔG₃    ...
+```
+
+More negative (−22) = more stable → unlikely promoter. Less negative (−12) = unstable → candidate. Row count = sequence length − 14.
+
+#### `input_GCstat.txt` — GC distribution
+
+Internal use. Generally not inspected directly.
+
+### Genome mode (format differences)
+
+`_PPde.txt` is a flat 11-column format (no ID/`>` header lines):
+
+```
+# win_start  %GC  pstart  pend  length  seq  lsp  lspe  Dmax_pos  Dmax  Dave
+0    15.90   500   607   108   tcgcaaat...   549   -11.42   555   1.85   1.52
+```
+
+| Key difference | Multisequence | Genome |
+|---------------|---------------|--------|
+| Dmax column | `$7` | **`$10`** |
+| Dave column | `$8` | **`$11`** |
+| pstart / pend | parsed from `parts[0]` | `$3` / `$4` |
 
 ---
 
 ## Quality Control
 
-Always run these QC checks after prediction:
+### Multisequence mode
 
 ```bash
-# 1. Coverage: did all sequences get analyzed?
-grep -c "^>" input.fasta                    # Input sequences
-grep -c "^ID" input_PPde.txt                # Sequences with ≥1 prediction
+# Coverage
+grep -c "^>" input.fasta          # Input sequences
+grep -c "^ID" input_PPde.txt      # Sequences with ≥1 prediction
 
-# 2. Dmax distribution: are values in a healthy range?
+# Dmax distribution
 awk -F'\t' '/^>/ {print $7}' input_PPde.txt | sort -nr | head -20
 
-# 3. Anomalies: impossible Dmax values?
-awk -F'\t' '/^>/ && ($7 > 10 || $7 < 0) {print}' input_PPde.txt
-
-# 4. Breakdown by confidence tier
+# Confidence tier breakdown
 high=$(awk -F'\t' '/^>/ && $7>=3.0' input_PPde.txt | wc -l)
 med=$(awk  -F'\t' '/^>/ && $7>=2.0 && $7<3.0' input_PPde.txt | wc -l)
 low=$(awk  -F'\t' '/^>/ && $7<2.0' input_PPde.txt | wc -l)
 echo "High: $high | Medium: $med | Low: $low"
 ```
 
-If **all** sequences show Dmax < 2.0:
-1. Check input sequence length (should be ≥ 200 bp)
-2. For high-GC genomes (>60%), manually specify the GC% value
-3. Try re-running with `E1=50` for shorter promoter detection
+If all Dmax < 2.0: ① verify sequence length ≥ 200 bp ② for high-GC genomes, specify actual GC% ③ try E1=50.
 
-### Genome-Mode QC
-
-Genome-mode `_PPde.txt` has a **flat format** (no `ID`/`>` lines) with **11 tab-separated columns**:
-
-```
-col 0: window_start  col 3: pstart  col 4: pend  col 9: Dmax  col 10: Dave
-```
+### Genome mode
 
 ```bash
-# Genome-mode QC commands (different column indices!)
-awk -F'\t' 'NR>2 && $10 >= 3.0' genome_PPde.txt | wc -l     # High confidence
+# Note different column indices
+awk -F'\t' 'NR>2 && $10 >= 3.0' genome_PPde.txt | wc -l             # High
 awk -F'\t' 'NR>2 && $10 >= 2.0 && $10 < 3.0' genome_PPde.txt | wc -l  # Medium
-awk -F'\t' 'NR>2 && $10 < 2.0' genome_PPde.txt | wc -l      # Low
+awk -F'\t' 'NR>2 && $10 < 2.0' genome_PPde.txt | wc -l              # Low
 
-# Extract all high-confidence predictions with coordinates
+# Export high-confidence predictions as BED
 awk -F'\t' 'NR>2 && $10 >= 3.0 {print $1"\t"$4"\t"$5"\t"$9"\t"$10}' genome_PPde.txt > high_conf.bed
 ```
 
 ---
 
-## Visualization
-
-The included `plot_prompredict.py` script generates publication-quality figures:
+## Visualization: plot_prompredict.py
 
 ```bash
 python3 plot_prompredict.py <prefix>
 ```
 
-> ⚠️ **Currently supports multisequence mode only.** Genome-mode visualization (genome-browser-style ΔG tracks) is planned for a future release. For genome-mode results, use the [Genome-Mode QC](#genome-mode-qc) commands to filter and export high-confidence predictions.
+Output directory `<prefix>_profiles/`:
 
-**Output directory** (`<prefix>_profiles/`):
+| File | Contents |
+|------|----------|
+| `<prefix>_confidence_summary.png` | Horizontal bar chart: all predictions ranked by descending Dmax |
+| `<seq_id>.png` | One 16×5 widescreen profile plot per sequence |
 
-| File | Description |
-|------|-------------|
-| `<prefix>_confidence_summary.png` | Horizontal bar chart: all predictions ranked by Dmax, color-coded by confidence |
-| `<seq_id_1>.png` | Free-energy profile for sequence 1, with predicted promoters highlighted |
-| `<seq_id_2>.png` | ... one PNG per sequence |
+Each profile plot includes:
 
-Each profile plot shows:
-- Blue line: 15-bp sliding-window ΔG curve
-- Red dashed line: sequence-wide mean ΔG
-- Colored bands: predicted promoter regions (green = high confidence, orange = medium, red = low)
-- Dmax annotations above each band
+- 🔵 Blue curve — 15-bp sliding-window ΔG
+- 🔴 Red dashed line — sequence mean ΔG
+- 🟢/🟠/🔴 bands — predicted promoters (green = high / orange = medium / red = low confidence)
+- Numerical annotations — Dmax values above each band
+- ⚠️ Warning — purple marker when Dmax and ΔG disagree thermodynamically
 
-### Example
-
-```bash
-# After running PromPredict on sample data:
-printf "sample_seq.fasta\n100\ndefault\n" | ./prompredict
-python3 plot_prompredict.py sample_seq
-
-# Generates:
-#   sample_seq_profiles/
-#   ├── sample_seq_confidence_summary.png   (overview)
-#   ├── PM0-4641yaiS...png                  (per-sequence profiles)
-#   └── ...
-```
+> ⚠️ Currently supports multisequence mode only. Genome-mode visualization (browser-style tracks) is planned but not yet implemented.
 
 ---
 
 ## Parameter Tuning
 
-| Symptom | Biological Explanation | Fix |
-|---------|----------------------|-----|
-| **Too many false positives** (5+ promoters per gene) | Threshold is too low; ordinary unstable regions flagged as promoters | Raise Dmax cutoff to **3.5** during filtering |
-| **Too many false negatives** (known promoters missed) | E1=100 is too broad, masking short promoter signals | Re-run with **E1=50** |
-| **High-GC genome** (GC > 60%) | Global ΔG baseline is much lower; signal-to-noise ratio degrades | Specify **actual GC%** (not `default`) and relax Dmax cutoff to **>2.0** |
-| **Low-GC genome** (GC < 30%) | Global ΔG baseline is higher; may miss weaker signals | Specify **actual GC%** |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Too many false positives | Threshold too low | Raise Dmax cutoff to 3.5 |
+| Too many false negatives | 100-nt window masks short signals | Re-run with E1=50 |
+| High GC (>60%) | ΔG baseline is too low | Specify actual GC%, relax cutoff to ≥2.0 |
+| Low GC (<30%) | ΔG baseline is too high | Specify actual GC% |
 
 ---
 
-## Integration with AI Tools
+## Integration with Other Tools
 
-PromPredict excels at **explainable first-pass screening**. For a complete promoter annotation pipeline, combine it with complementary tools:
+Use PromPredict for **explainable first-pass screening**, then combine with:
 
-| Stage | Tool | Why It's Irreplaceable |
-|-------|------|----------------------|
-| **1. Screen** | **PromPredict** | Only physics-based method. Every prediction is explainable: "DNA here is easier to melt." |
-| **2. Validate** | iPro-MP / DeePromoter | BERT/CNN models recognize complex σ-factor-specific sequence motifs that PromPredict cannot distinguish |
-| **3. Score** | promoterCalculator | Quantifies −35/−10 element match against position weight matrices |
-| **4. Terminate** | cryptkeeper / transtermHP | Rho-dependent and independent terminator prediction — often co-localized with promoters |
-| **5. Structure** | ViennaRNA | RNA secondary structure at the promoter can affect transcription initiation efficiency |
-
----
-
-## Scope and Limitations
-
-### Best Performance
-- Gram-negative bacteria (especially *Proteobacteria*) with GC 35–55%
-- Upstream regions of protein-coding genes (200–500 bp)
-- σ70-type promoters (the predominant type in *E. coli*)
-
-### Use with Caution
-- High-GC bacteria (*Streptomyces* >72%, *Mycobacterium* >65%) or Archaea
-- σ54-type promoters (different melting mechanism; lower sensitivity)
-- GC < 30% genomes (may miss weak signals)
-
-### Not Recommended
-- Mammalian genomes — CpG islands, chromatin structure, and distal enhancers are beyond PromPredict's design
-- Predicting promoter **strength** — PromPredict predicts **location**, not expression level. Use `promoterCalculator` for strength
+| Step | Tool | Complements |
+|------|------|-------------|
+| **Screen** | PromPredict | Only physics-based method. Explains "why is this a promoter?" |
+| **Validate** | iPro-MP / DeePromoter | Recognizes σ-factor-specific sequence motifs |
+| **Score** | promoterCalculator | Quantifies −35/−10 match against PWMs |
+| **Terminate** | cryptkeeper / transtermHP | Terminators often co-localize with promoters |
+| **Structure** | ViennaRNA | RNA secondary structure affects transcription efficiency |
 
 ---
 
 ## FAQ
 
 <details>
-<summary><b>Why is the _stb.txt line count less than the sequence length?</b></summary>
-
-_stb.txt records values for 15-bp sliding windows. Row N corresponds to the **center** of window N, so there are `sequence_length − 14` rows total (each end loses 7 bp of coverage).
+<summary><b>Why are there fewer rows in _stb.txt than the sequence length?</b></summary>
+15-bp windows lose 7 bp of coverage at each end. Rows = sequence length − 14.
 </details>
 
 <details>
-<summary><b>The predicted promoter overlaps a CDS. Is this an error?</b></summary>
-
-Not necessarily. PromPredict identifies **thermodynamically unstable regions**, which can occur inside genes: internal promoters, Rho-dependent terminator regions, or horizontal gene transfer insertion sites. Cross-validate with −10/−35 box motif search (<code>TATAAT</code> / <code>TTGACA</code>).
+<summary><b>A predicted promoter overlaps a CDS. Is that an error?</b></summary>
+Not necessarily. Internal promoters, terminator-adjacent melting regions, or HGT insertion sites can appear inside genes. Cross-validate with −10/−35 motif search (<code>TATAAT</code> / <code>TTGACA</code>).
 </details>
 
 <details>
-<summary><b>How do I choose between multisequence and genome mode?</b></summary>
-
-- **Multisequence** (`PromPredict_mulseq`): up to a few hundred gene upstream regions, each in a separate FASTA entry. Ideal for targeted analysis.
-- **Genome** (`PromPredict_genome_V2`): one large FASTA (complete chromosome or scaffold). Ideal for whole-genome promoter scanning.
-</details>
-
-<details>
-<summary><b>PromPredict reports a promoter on every sequence. Is that normal?</b></summary>
-
-It can happen with sequences longer than 500 bp — the binary applies a permissive first pass. Filter by Dmax: keep only Dmax ≥ 2.0 (or ≥ 3.0 for high-stringency analysis).
+<summary><b>PromPredict finds a promoter on every sequence. Normal?</b></summary>
+Yes for sequences >500 bp — the first pass is permissive. Filter by Dmax ≥ 2.0 (or ≥ 3.0 for high stringency).
 </details>
 
 <details>
 <summary><b>Can I run this on macOS?</b></summary>
+The binary is Linux x86-64. Use Docker or the IISc web server.
+</details>
 
-The IISc binary is compiled for Linux x86-64. On macOS, you have two options:
-1. **Docker**: `docker run -v $(pwd):/data ubuntu:20.04 /data/prompredict ...`
-2. **Web server**: use the online version at https://dna.mbu.iisc.ac.in/prompredict/
+<details>
+<summary><b>Uncertain: are the Dmax thresholds universal?</b></summary>
+The recommended Dmax tiers (≥3.5, 3.0–3.5, etc.) are empirical guidelines validated against the IISc sample dataset and literature-verified *E. coli* promoters. Across different organisms or GC extremes, the optimal cutoffs may shift. We recommend benchmarking against a few known promoters in your organism of interest before applying genome-wide.
 </details>
 
 ---
 
 ## Citation
 
-If you use PromPredict in your research, please cite:
-
 > Rangannan, V., & Bansal, M. (2009).  
 > **Relative stability of DNA as a generic criterion for promoter prediction: whole genome annotation of microbial genomes with varying nucleotide base composition.**  
-> *Molecular BioSystems*, 5(12), 1758–1769.  
-> DOI: [10.1039/B906535K](https://doi.org/10.1039/B906535K)
+> *Molecular BioSystems*, 5(12), 1758–1769. DOI: [10.1039/B906535K](https://doi.org/10.1039/B906535K)
 
 For eukaryotic applications, also cite:
 
 > Rangannan, V., & Bansal, M. (2018).  
 > **Identification of putative promoters in 48 eukaryotic genomes on the basis of DNA free energy.**  
-> *Scientific Reports*, 8, 4520.  
-> DOI: [10.1038/s41598-018-22129-8](https://doi.org/10.1038/s41598-018-22129-8)
+> *Scientific Reports*, 8, 4520. DOI: [10.1038/s41598-018-22129-8](https://doi.org/10.1038/s41598-018-22129-8)
 
 ---
 
 ## Contributing
 
-Bug reports, feature requests, and pull requests are welcome at [github.com/lijiangyong314/PromPredict-Toolkit](https://github.com/lijiangyong314/PromPredict-Toolkit). Please open an issue before submitting a PR for major changes.
+Issues and PRs welcome at [github.com/lijiangyong314/PromPredict-Toolkit](https://github.com/lijiangyong314/PromPredict-Toolkit). Please open an issue before submitting major PRs.
 
 ## License
 
-This toolkit (Python scripts, documentation, visualization code) is released under the **MIT License**. See [LICENSE](LICENSE) for details.
+This toolkit (Python scripts, documentation, visualization code) is released under the **MIT License**. See [LICENSE](LICENSE).
 
-The PromPredict binary is © Molecular Biophysics Unit, Indian Institute of Science. Redistribution terms are available at the [official download page](https://dna.mbu.iisc.ac.in/prompredict/download.html).
+The PromPredict binary is © Molecular Biophysics Unit, Indian Institute of Science. See the [official download page](https://dna.mbu.iisc.ac.in/prompredict/download.html) for redistribution terms.
+
+> ⚠️ **Uncertainty note**: The exact license/redistribution terms of the PromPredict binary are specified on the IISc website. The copyright attribution above is based on the website footer. Check the official page for the definitive legal text.
 
 ## Acknowledgments
 
-- **Vetriselvi Rangannan & Manju Bansal** (IISc) — for developing PromPredict and making it freely available
-- The Breslauer dinucleotide free-energy parameters (Breslauer et al., 1986 *PNAS*)
-- The experimentally validated TSS datasets from *E. coli* K-12, *B. subtilis*, and *M. tuberculosis* used for threshold derivation
+- Vetriselvi Rangannan & Manju Bansal (IISc) — for developing PromPredict and making it freely available
+- Breslauer et al. (1986 *PNAS*) — dinucleotide free-energy parameters
+- Experimentally validated TSS datasets from *E. coli* K-12, *B. subtilis*, and *M. tuberculosis*
