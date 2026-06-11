@@ -79,6 +79,45 @@ sample_seq_profiles/
 
 ---
 
+---
+
+## 示例输出
+
+光说不练假把式。`sample/` 目录里放的是用 IISc 官方样本数据集跑出来的真实结果——输入、输出、可视化全在里面。
+
+### `sample/data/` 里面有什么
+
+| 文件 | 内容 |
+|------|------|
+| `sample_seq_stb.txt` | 自由能（ΔG）剖面：10 个已知 *E. coli* 启动子区的 15-bp 滑动窗口数据 |
+| `sample_seq_PPde.txt` | 预测启动子列表：14 个预测，Dmax 从 1.02（噪音）到 4.54（强信号） |
+| `sample_seq_GCstat.txt` | 输入序列的 GC 含量分布 |
+
+### `sample/profiles/` 里面有什么
+
+由 `plot_prompredict.py` 生成——**你跑自己数据后拿到的就是这种图**：
+
+| 文件 | 展示内容 |
+|------|---------|
+| `sample_seq_confidence_summary.png` | 14 个预测按 Dmax 排序。绿 = 高（≥3.0），橙 = 中（2.0–3.0），红 = 低（<2.0）。一眼看出：4 个强候选、6 个中等、4 个弱信号 |
+| `PM0-*.png` | 每条序列一张自由能剖面图。蓝线 = ΔG，红色带 = 预测启动子，Dmax 数值直接标在图上。经典的大肠杆菌 ompF 启动子被正确识别（Dmax=2.34） |
+
+### 自己试试
+
+```bash
+# 原始输入在 sample/data/ 里，跑一遍：
+printf "sample/data/sample_seq.txt\n100\ndefault\n" | ./prompredict
+
+# 可视化：
+python3 plot_prompredict.py sample_seq
+
+# 你的输出应该和 sample/profiles/ 一致
+```
+
+> 💡 IISc 样本数据集覆盖 10 个实验验证的 *E. coli* σ⁷⁰ 启动子（yaiS、ompF、pgaA、csgD、csgB、rpoB、gerD、skf、glpT、srfAA），PromPredict 全部正确识别。
+
+---
+
 ## 快速开始
 
 ```bash
