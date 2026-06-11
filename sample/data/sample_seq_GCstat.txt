@@ -1,0 +1,3 @@
+#%GC-range	No of sequences
+35-40	9
+45-50	1
